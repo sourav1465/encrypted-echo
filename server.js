@@ -5,15 +5,25 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
 const app = express();
-app.use(express.json());
 
-// --- 1. FIXED CORS POLICY ---
-// This allows your Vercel frontend to communicate with your Render backend
-app.use(cors({
-  origin: ["https://encrypted-echo-nu.vercel.app", "http://localhost:5173"],
-  methods: ["GET", "POST", "PUT", "DELETE"],
+// --- 1. CORS FIRST (before everything) ---
+const corsOptions = {
+  origin: function (origin, callback) {
+    if (!origin || origin.endsWith('.vercel.app') || origin === 'http://localhost:5173') {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true
-}));
+};
+
+app.use(cors(corsOptions));
+app.options(/.*/, cors(corsOptions));
+
+app.use(express.json());
 
 // --- 2. DATABASE CONNECTION ---
 const mongoURI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/blogDB';
@@ -59,7 +69,6 @@ app.post('/api/auth/register', async (req, res) => {
   try {
     const { username, password } = req.body;
     
-    // Check if user already exists
     const existingUser = await User.findOne({ username });
     if (existingUser) return res.status(400).json({ message: "Username is already taken." });
 
