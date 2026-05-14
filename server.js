@@ -1,22 +1,30 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
-const bcrypt = require('bcryptjs'); // Using bcryptjs for maximum compatibility
+const bcrypt = require('bcryptjs'); 
 const jwt = require('jsonwebtoken');
 
 const app = express();
 app.use(express.json());
-app.use(cors());
 
-// Use Docker DB if available, otherwise use local DB
+// --- 1. FIXED CORS POLICY ---
+// This allows your Vercel frontend to communicate with your Render backend
+app.use(cors({
+  origin: ["https://encrypted-echo-nu.vercel.app", "http://localhost:5173"],
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  credentials: true
+}));
+
+// --- 2. DATABASE CONNECTION ---
 const mongoURI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/blogDB';
 mongoose.connect(mongoURI)
-  .then(() => console.log('✅ MongoDB Connected'))
-  .catch(err => console.error('❌ MongoDB Error:', err));
+  .then(() => console.log('✅ MongoDB Connected Successfully'))
+  .catch(err => console.error('❌ MongoDB Connection Error:', err));
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your_super_secret_key';
+// --- 3. SECURITY CONFIG ---
+const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_for_local_only';
 
-// --- DATABASE SCHEMAS ---
+// --- 4. DATABASE SCHEMAS ---
 const UserSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true },
   password: { type: String, required: true }
@@ -27,52 +35,72 @@ const PostSchema = new mongoose.Schema({
   title: String,
   content: String,
   author: String,
-  imageUrl: String,  // NEW: Optional image link
-  videoUrl: String   // NEW: Optional video link
+  imageUrl: String,
+  videoUrl: String
 });
 const Post = mongoose.model('Post', PostSchema);
 
-// --- SECURITY MIDDLEWARE ---
+// --- 5. AUTHENTICATION MIDDLEWARE ---
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
-  if (!token) return res.status(401).json({ message: "Access Denied" });
+  
+  if (!token) return res.status(401).json({ message: "Access Denied: No Token Provided" });
 
   jwt.verify(token, JWT_SECRET, (err, user) => {
-    if (err) return res.status(403).json({ message: "Invalid Token" });
+    if (err) return res.status(403).json({ message: "Invalid or Expired Token" });
     req.user = user;
     next();
   });
 };
 
-// --- AUTH ROUTES ---
+// --- 6. AUTH ROUTES ---
 app.post('/api/auth/register', async (req, res) => {
   try {
-    const hashedPassword = await bcrypt.hash(req.body.password, 10);
-    const user = new User({ username: req.body.username, password: hashedPassword });
+    const { username, password } = req.body;
+    
+    // Check if user already exists
+    const existingUser = await User.findOne({ username });
+    if (existingUser) return res.status(400).json({ message: "Username is already taken." });
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const user = new User({ username, password: hashedPassword });
     await user.save();
+    
+    console.log(`👤 New User Registered: ${username}`);
     res.status(201).json({ message: "Account created securely!" });
   } catch (error) {
-    res.status(500).json({ message: "Registration failed. Username might exist." });
+    console.error("Registration Error:", error);
+    res.status(500).json({ message: "Server error during registration." });
   }
 });
 
 app.post('/api/auth/login', async (req, res) => {
   try {
-    const user = await User.findOne({ username: req.body.username });
-    if (!user) return res.status(400).json({ message: "User not found" });
+    const { username, password } = req.body;
+    const user = await User.findOne({ username });
+    
+    if (!user) {
+      console.log(`❌ Login failed: User ${username} not found`);
+      return res.status(400).json({ message: "Invalid Credentials" });
+    }
 
-    const validPassword = await bcrypt.compare(req.body.password, user.password);
-    if (!validPassword) return res.status(400).json({ message: "Invalid password" });
+    const validPassword = await bcrypt.compare(password, user.password);
+    if (!validPassword) {
+      console.log(`❌ Login failed: Incorrect password for ${username}`);
+      return res.status(400).json({ message: "Invalid Credentials" });
+    }
 
-    const token = jwt.sign({ username: user.username }, JWT_SECRET);
-    res.json({ token: token, message: "Logged in successfully" });
+    const token = jwt.sign({ username: user.username }, JWT_SECRET, { expiresIn: '24h' });
+    console.log(`✅ User Logged In: ${username}`);
+    res.json({ token, message: "Logged in successfully" });
   } catch (error) {
-    res.status(500).json({ message: "Login Error" });
+    console.error("Login Error:", error);
+    res.status(500).json({ message: "Internal Server Error during login" });
   }
 });
 
-// --- POST ROUTES (CRUD) ---
+// --- 7. POST ROUTES (CRUD) ---
 app.get('/api/posts', authenticateToken, async (req, res) => {
   try {
     const posts = await Post.find();
@@ -88,8 +116,8 @@ app.post('/api/posts', authenticateToken, async (req, res) => {
       title: req.body.title,
       content: req.body.content,
       author: req.user.username,
-      imageUrl: req.body.imageUrl, // NEW
-      videoUrl: req.body.videoUrl  // NEW
+      imageUrl: req.body.imageUrl,
+      videoUrl: req.body.videoUrl
     });
     await post.save();
     res.status(201).json(post);
@@ -109,8 +137,8 @@ app.put('/api/posts/:id', authenticateToken, async (req, res) => {
       { 
         title: req.body.title, 
         content: req.body.content,
-        imageUrl: req.body.imageUrl, // <-- Added this
-        videoUrl: req.body.videoUrl  // <-- Added this
+        imageUrl: req.body.imageUrl,
+        videoUrl: req.body.videoUrl
       },
       { new: true }
     );
@@ -133,4 +161,6 @@ app.delete('/api/posts/:id', authenticateToken, async (req, res) => {
   }
 });
 
-app.listen(5000, () => console.log('🚀 Server securely running on Port 5000'));
+// --- 8. START SERVER ---
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`🚀 Server securely running on Port ${PORT}`));
