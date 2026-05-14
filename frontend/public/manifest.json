@@ -1,0 +1,16 @@
+{
+  "short_name": "CreatorApp",
+  "name": "Creator Portal Dashboard",
+  "description": "A secure broadcast and publishing platform.",
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#0f172a",
+  "background_color": "#0f172a",
+  "icons": [
+    {
+      "src": "vite.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    }
+  ]
+}
