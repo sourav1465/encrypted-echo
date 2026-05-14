@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 
-// NEW: Dynamic API URL for Vercel Deployment
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 function Dashboard() {
@@ -10,7 +9,6 @@ function Dashboard() {
   const [content, setContent] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const [videoUrl, setVideoUrl] = useState('');
-  
   const [message, setMessage] = useState('');
   const [editingId, setEditingId] = useState(null);
 
@@ -19,7 +17,7 @@ function Dashboard() {
   useEffect(() => {
     if (!token) window.location.href = '/'; 
     else fetchPosts();
-  }, [token]);
+  }, []);
 
   const fetchPosts = async () => {
     try {
@@ -113,7 +111,6 @@ function Dashboard() {
           .editor-card { background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(12px); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 20px; padding: 30px; margin-bottom: 40px; box-shadow: 0 15px 35px rgba(0,0,0,0.4); }
           .styled-input { width: 100%; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 12px; padding: 15px; color: white; font-size: 16px; margin-bottom: 15px; box-sizing: border-box; transition: all 0.3s; }
           .styled-input:focus { border-color: #38bdf8; outline: none; background: rgba(255,255,255,0.1); }
-          
           .url-input { padding: 12px; font-size: 14px; margin-bottom: 10px; }
 
           .publish-btn { background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%); color: white; border: none; padding: 14px; border-radius: 12px; font-weight: 700; cursor: pointer; width: 100%; text-transform: uppercase; letter-spacing: 1px; transition: transform 0.2s; margin-top: 10px; }
@@ -123,8 +120,7 @@ function Dashboard() {
           .feed-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 25px; padding-bottom: 50px; }
           .post-card { background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(8px); border: 1px solid rgba(56, 189, 248, 0.15); border-radius: 16px; padding: 25px; position: relative; transition: transform 0.3s; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
           .post-card:hover { transform: translateY(-5px); border-color: rgba(56,189,248,0.4); }
-          
-          /* Updated Image Style for Portrait photos */
+
           .post-image { width: 100%; max-height: 500px; object-fit: contain; border-radius: 8px; margin-bottom: 15px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); }
           .post-video { width: 100%; height: 200px; border-radius: 8px; margin-bottom: 15px; border: 1px solid rgba(255,255,255,0.1); }
 
@@ -133,6 +129,8 @@ function Dashboard() {
           .action-icon:hover { opacity: 0.7; }
           .edit-icon { color: #38bdf8; }
           .delete-icon { color: #f43f5e; }
+
+          .empty-state { text-align: center; color: #475569; padding: 60px 20px; font-size: 16px; }
         `}
       </style>
 
@@ -148,14 +146,11 @@ function Dashboard() {
             <h2 style={{marginTop:0, color:'#e2e8f0', marginBottom:'20px'}}>{editingId ? 'Edit Broadcast' : 'Transmit New Broadcast'}</h2>
             <form onSubmit={handlePostSubmit}>
               <input type="text" placeholder="Subject / Title *" className="styled-input" value={title} onChange={(e)=>setTitle(e.target.value)} required />
-              
               <textarea placeholder="Type your message here... *" className="styled-input" style={{minHeight:'120px', resize:'vertical'}} value={content} onChange={(e)=>setContent(e.target.value)} required />
-              
               <div style={{display: 'flex', gap: '10px'}}>
                 <input type="text" placeholder="Image Link (Optional)" className="styled-input url-input" value={imageUrl} onChange={(e)=>setImageUrl(e.target.value)} />
                 <input type="text" placeholder="YouTube Link (Optional)" className="styled-input url-input" value={videoUrl} onChange={(e)=>setVideoUrl(e.target.value)} />
               </div>
-
               <button type="submit" className="publish-btn">{editingId ? 'Update Transmission' : 'Transmit'}</button>
               {editingId && <button type="button" onClick={resetForm} className="cancel-btn">Cancel Edit</button>}
             </form>
@@ -164,45 +159,55 @@ function Dashboard() {
 
           <h2 style={{ color: '#94a3b8', fontSize: '18px', borderBottom: '1px solid rgba(56,189,248,0.2)', paddingBottom: '10px' }}>Recent Transmissions</h2>
 
-          <div className="feed-grid">
-            {posts.map((post) => (
-              <div key={post._id} className="post-card">
-                
-                {post.imageUrl && (
-                  <img src={post.imageUrl} alt="Post Attachment" className="post-image" onError={(e) => e.target.style.display = 'none'} />
-                )}
+          {posts.length === 0 ? (
+            <div className="empty-state">📡 No transmissions yet. Be the first to broadcast!</div>
+          ) : (
+            <div className="feed-grid">
+              {posts.map((post) => (
+                <div key={post._id} className="post-card">
 
-                {post.videoUrl && getEmbedUrl(post.videoUrl) && (
-                  <iframe 
-                    className="post-video"
-                    src={getEmbedUrl(post.videoUrl)} 
-                    title="YouTube video player" 
-                    frameBorder="0" 
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                    allowFullScreen>
-                  </iframe>
-                )}
+                  {post.imageUrl && (
+                    <img
+                      src={post.imageUrl}
+                      alt="Post Attachment"
+                      className="post-image"
+                      referrerPolicy="no-referrer"
+                      crossOrigin="anonymous"
+                      onError={(e) => e.target.style.display = 'none'}
+                    />
+                  )}
 
-                <h3 style={{margin:'0 0 10px 0', fontSize:'20px'}}>{post.title}</h3>
-                <p style={{color:'#cbd5e1', fontSize:'15px', lineHeight:'1.5', wordWrap:'break-word'}}>{post.content}</p>
-                <div style={{fontSize:'12px', fontWeight:'600', color:'#7dd3fc', background:'rgba(56,189,248,0.15)', padding:'4px 10px', borderRadius:'6px', display:'inline-block'}}>By: {post.author}</div>
-                
-                {/* CO5: AI Sentiment Analyzer */}
-                <div style={{ marginTop: '10px', fontSize: '11px', color: '#94a3b8', fontStyle: 'italic' }}>
-                  AI Insight: {
-                    post.content.toLowerCase().includes('good') || post.content.toLowerCase().includes('great') || post.content.toLowerCase().includes('best') 
-                    ? '✨ Positive Sentiment Detected' 
-                    : '🤖 Neutral Analysis Complete'
-                  }
+                  {post.videoUrl && getEmbedUrl(post.videoUrl) && (
+                    <iframe
+                      className="post-video"
+                      src={getEmbedUrl(post.videoUrl)}
+                      title="YouTube video player"
+                      frameBorder="0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen>
+                    </iframe>
+                  )}
+
+                  <h3 style={{margin:'0 0 10px 0', fontSize:'20px'}}>{post.title}</h3>
+                  <p style={{color:'#cbd5e1', fontSize:'15px', lineHeight:'1.5', wordWrap:'break-word'}}>{post.content}</p>
+                  <div style={{fontSize:'12px', fontWeight:'600', color:'#7dd3fc', background:'rgba(56,189,248,0.15)', padding:'4px 10px', borderRadius:'6px', display:'inline-block'}}>By: {post.author}</div>
+
+                  <div style={{ marginTop: '10px', fontSize: '11px', color: '#94a3b8', fontStyle: 'italic' }}>
+                    AI Insight: {
+                      post.content.toLowerCase().includes('good') || post.content.toLowerCase().includes('great') || post.content.toLowerCase().includes('best')
+                      ? '✨ Positive Sentiment Detected'
+                      : '🤖 Neutral Analysis Complete'
+                    }
+                  </div>
+
+                  <div className="action-bar">
+                    <span className="action-icon edit-icon" onClick={() => startEdit(post)}>✎ EDIT</span>
+                    <span className="action-icon delete-icon" onClick={() => handleDelete(post._id)}>🗑 DELETE</span>
+                  </div>
                 </div>
-
-                <div className="action-bar">
-                  <span className="action-icon edit-icon" onClick={() => startEdit(post)}>✎ EDIT</span>
-                  <span className="action-icon delete-icon" onClick={() => handleDelete(post._id)}>🗑 DELETE</span>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </>
